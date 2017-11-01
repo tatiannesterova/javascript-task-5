@@ -40,15 +40,10 @@ function getEmitter() {
                 (event.countEmitted % subscription.frequency) !== 0) {
                 return true;
             }
-            subscription.handler.call(subscription.context);
-            if (subscription.hasOwnProperty('times')) {
-                if (subscription.times === 1) {
-                    return false;
-                }
-                subscription.times -= 1;
-
-                return true;
+            if (subscription.hasOwnProperty('times') && subscription.times <= event.countEmitted) {
+                return false;
             }
+            subscription.handler.call(subscription.context);
 
             return true;
         });
@@ -146,11 +141,7 @@ function getEmitter() {
          * @returns {Object}
          */
         through: function (event, context, handler, frequency) {
-            if (frequency <= 0) {
-                this.on(event, context, handler);
-
-                return this;
-            }
+            frequency = frequency > 0 ? frequency : 1;
             getEvent(event).subscriptions.push({ context: context,
                 handler: handler,
                 frequency: frequency });
