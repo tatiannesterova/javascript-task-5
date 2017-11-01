@@ -36,9 +36,8 @@ function getEmitter() {
             backEmit(event[subEvents.shift()], subEvents);
         }
         event.subscriptions = event.subscriptions.filter(function (subscription) {
-            subscription.count += 1;
             if (subscription.hasOwnProperty('frequency') &&
-                (subscription.count % subscription.frequency) !== 0) {
+                (event.countEmitted % subscription.frequency) !== 0) {
                 return true;
             }
             subscription.handler.call(subscription.context);
@@ -53,6 +52,7 @@ function getEmitter() {
 
             return true;
         });
+        event.countEmitted += 1;
     };
 
     var getEvent = function (nameEvent) {
@@ -131,8 +131,7 @@ function getEmitter() {
             times = times > 0 ? times : 1;
             getEvent(event).subscriptions.push({ context: context,
                 handler: handler,
-                times: times,
-                count: -1 });
+                times: times });
 
             return this;
         },
@@ -148,12 +147,13 @@ function getEmitter() {
          */
         through: function (event, context, handler, frequency) {
             if (frequency <= 0) {
-                return this.on(event, context, handler);
+                this.on(event, context, handler);
+
+                return this;
             }
             getEvent(event).subscriptions.push({ context: context,
                 handler: handler,
-                frequency: frequency,
-                count: -1 });
+                frequency: frequency });
 
             return this;
         }
