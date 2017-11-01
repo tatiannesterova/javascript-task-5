@@ -27,7 +27,7 @@ function getEmitter() {
             return subscription.context !== context;
         });
         Object.keys(event).forEach(function (subEvent) {
-            offEvent(event[subEvent]);
+            offEvent(event[subEvent], context);
         });
     };
 
