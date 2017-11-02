@@ -112,11 +112,12 @@ function getEmitter() {
          * @returns {Object}
          */
         several: function (event, context, handler, times) {
-            times = times > 0 ? times : 1;
+            if (times <= 0) {
+                return this.on(event, context, handler);
+            }
             var countEmitted = 0;
 
             return this.on(event, context, function () {
-                console.info(times, countEmitted, context);
                 if (times > countEmitted) {
                     handler.call(context);
                 }
@@ -134,7 +135,9 @@ function getEmitter() {
          * @returns {Object}
          */
         through: function (event, context, handler, frequency) {
-            frequency = frequency > 0 ? frequency : 1;
+            if (frequency <= 0) {
+                return this.on(event, context, handler);
+            }
             var countEmitted = 0;
 
             return this.on(event, context, function () {
