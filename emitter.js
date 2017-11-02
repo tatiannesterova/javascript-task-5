@@ -23,7 +23,7 @@ function getEmitter() {
 
     };
 
-    var events = createEvent();
+    var baseEvent = createEvent();
 
     var offEvent = function (event, context) {
         event.subscriptions = event.subscriptions.filter(function (subscription) {
@@ -59,7 +59,7 @@ function getEmitter() {
                 }
 
                 return parentEvent[subEvent];
-            }, events)
+            }, baseEvent)
                 .subscriptions.push({ context: context, handler: handler });
 
             return this;
@@ -80,7 +80,7 @@ function getEmitter() {
                     }
 
                     return parentEvent[subEvent];
-                }, events), context);
+                }, baseEvent), context);
             } catch (error) {
                 if (error.message !== messageError) {
                     throw error;
@@ -97,7 +97,7 @@ function getEmitter() {
          * @returns {Object}
          */
         emit: function (event) {
-            backEmit(events, event.split('.'));
+            backEmit(baseEvent, event.split('.'));
 
             return this;
         },
