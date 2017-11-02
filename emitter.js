@@ -12,15 +12,18 @@ module.exports = getEmitter;
  * @returns {Object}
  */
 function getEmitter() {
-    var definePropertiesForEvent = function (event) {
-        Object.defineProperties(event, {
-            'subscriptions': { value: [], enumerable: false, writable: true },
-            'countEmitted': { value: 0, enumerable: false, writable: true }
-        });
+
+    var createEvent = function () {
+        var event = {};
+        Object.defineProperty(event,
+            'subscriptions',
+            { value: [], enumerable: false, writable: true });
+
+        return event;
+
     };
 
-    var events = {};
-    definePropertiesForEvent(events);
+    var events = createEvent();
 
     var offEvent = function (event, context) {
         event.subscriptions = event.subscriptions.filter(function (subscription) {
@@ -35,30 +38,9 @@ function getEmitter() {
         if ((subEvents.length !== 0) && event.hasOwnProperty(subEvents[0])) {
             backEmit(event[subEvents.shift()], subEvents);
         }
-        event.subscriptions = event.subscriptions.filter(function (subscription) {
-            if (subscription.hasOwnProperty('frequency') &&
-                (event.countEmitted % subscription.frequency) !== 0) {
-                return true;
-            }
-            if (subscription.hasOwnProperty('times') && subscription.times <= event.countEmitted) {
-                return false;
-            }
+        event.subscriptions.forEach(function (subscription) {
             subscription.handler.call(subscription.context);
-
-            return true;
         });
-        event.countEmitted += 1;
-    };
-
-    var getEvent = function (nameEvent) {
-        return nameEvent.split('.').reduce(function (parentEvent, subEvent) {
-            if (!parentEvent.hasOwnProperty(subEvent)) {
-                parentEvent[subEvent] = {};
-                definePropertiesForEvent(parentEvent[subEvent]);
-            }
-
-            return parentEvent[subEvent];
-        }, events);
     };
 
     return {
@@ -71,7 +53,14 @@ function getEmitter() {
          * @returns {Object}
          */
         on: function (event, context, handler) {
-            this.through(event, context, handler, 1);
+            event.split('.').reduce(function (parentEvent, subEvent) {
+                if (!parentEvent.hasOwnProperty(subEvent)) {
+                    parentEvent[subEvent] = createEvent();
+                }
+
+                return parentEvent[subEvent];
+            }, events)
+                .subscriptions.push({ context: context, handler: handler });
 
             return this;
         },
@@ -124,11 +113,15 @@ function getEmitter() {
          */
         several: function (event, context, handler, times) {
             times = times > 0 ? times : 1;
-            getEvent(event).subscriptions.push({ context: context,
-                handler: handler,
-                times: times });
+            var countEmitted = 0;
 
-            return this;
+            return this.on(event, context, function () {
+                console.info(times, countEmitted, context);
+                if (times > countEmitted) {
+                    handler.call(context);
+                }
+                countEmitted += 1;
+            });
         },
 
         /**
@@ -142,11 +135,14 @@ function getEmitter() {
          */
         through: function (event, context, handler, frequency) {
             frequency = frequency > 0 ? frequency : 1;
-            getEvent(event).subscriptions.push({ context: context,
-                handler: handler,
-                frequency: frequency });
+            var countEmitted = 0;
 
-            return this;
+            return this.on(event, context, function () {
+                if ((countEmitted % frequency) === 0) {
+                    handler.call(context);
+                }
+                countEmitted += 1;
+            });
         }
     };
 }
