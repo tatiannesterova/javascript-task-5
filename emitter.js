@@ -12,31 +12,20 @@ module.exports = getEmitter;
  * @returns {Object}
  */
 function getEmitter() {
+    const baseEvent = { subscriptions: [], subEvents: {} };
 
-    var createEvent = function () {
-        var event = {};
-        Object.defineProperty(event,
-            'subscriptions',
-            { value: [], enumerable: false, writable: true });
-
-        return event;
-
-    };
-
-    var baseEvent = createEvent();
-
-    var offEvent = function (event, context) {
+    const offEvent = function (event, context) {
         event.subscriptions = event.subscriptions.filter(function (subscription) {
             return subscription.context !== context;
         });
-        Object.keys(event).forEach(function (subEvent) {
-            offEvent(event[subEvent], context);
+        Object.keys(event.subEvents).forEach(function (subEvent) {
+            offEvent(event.subEvents[subEvent], context);
         });
     };
 
-    var backEmit = function (event, subEvents) {
-        if ((subEvents.length !== 0) && event.hasOwnProperty(subEvents[0])) {
-            backEmit(event[subEvents.shift()], subEvents);
+    const emitEvent = function (event, subEvents) {
+        if ((subEvents.length !== 0) && event.subEvents.hasOwnProperty(subEvents[0])) {
+            emitEvent(event.subEvents[subEvents.shift()], subEvents);
         }
         event.subscriptions.forEach(function (subscription) {
             subscription.handler.call(subscription.context);
@@ -54,11 +43,11 @@ function getEmitter() {
          */
         on: function (event, context, handler) {
             event.split('.').reduce(function (parentEvent, subEvent) {
-                if (!parentEvent.hasOwnProperty(subEvent)) {
-                    parentEvent[subEvent] = createEvent();
+                if (!parentEvent.subEvents.hasOwnProperty(subEvent)) {
+                    parentEvent.subEvents[subEvent] = { subscriptions: [], subEvents: {} };
                 }
 
-                return parentEvent[subEvent];
+                return parentEvent.subEvents[subEvent];
             }, baseEvent)
                 .subscriptions.push({ context: context, handler: handler });
 
@@ -72,20 +61,23 @@ function getEmitter() {
          * @returns {Object}
          */
         off: function (event, context) {
-            let messageError = 'на event никто не подписан';
+            const MESSAGE_ERROR = 'на event никто не подписан';
+
             try {
-                offEvent(event.split('.').reduce(function (parentEvent, subEvent) {
-                    if (!parentEvent.hasOwnProperty(subEvent)) {
-                        throw new TypeError(messageError);
+                const deletingEvent = event.split('.').reduce(function (parentEvent, subEvent) {
+                    if (!parentEvent.subEvents.hasOwnProperty(subEvent)) {
+                        throw new TypeError(MESSAGE_ERROR);
                     }
 
-                    return parentEvent[subEvent];
-                }, baseEvent), context);
+                    return parentEvent.subEvents[subEvent];
+                }, baseEvent);
+
+                offEvent(deletingEvent, context);
             } catch (error) {
-                if (error.message !== messageError) {
+                if (error.message !== MESSAGE_ERROR) {
                     throw error;
                 }
-                console.info(messageError);
+                console.info(MESSAGE_ERROR);
             }
 
             return this;
@@ -97,7 +89,7 @@ function getEmitter() {
          * @returns {Object}
          */
         emit: function (event) {
-            backEmit(baseEvent, event.split('.'));
+            emitEvent(baseEvent, event.split('.'));
 
             return this;
         },
@@ -115,7 +107,7 @@ function getEmitter() {
             if (times <= 0) {
                 return this.on(event, context, handler);
             }
-            var countEmitted = 0;
+            let countEmitted = 0;
 
             return this.on(event, context, function () {
                 if (times > countEmitted) {
@@ -138,13 +130,14 @@ function getEmitter() {
             if (frequency <= 0) {
                 return this.on(event, context, handler);
             }
-            var countEmitted = 0;
+            let count = frequency;
 
             return this.on(event, context, function () {
-                if ((countEmitted % frequency) === 0) {
+                if (count === frequency) {
                     handler.call(context);
+                    count = 0;
                 }
-                countEmitted += 1;
+                count += 1;
             });
         }
     };
